@@ -33,8 +33,8 @@
 #include <unistd.h>
 
 #include "gps.h"
-#include "raspi.h"
-#include "uart.h"
+#include "../Raspi/raspi.h"
+#include "../Uart/uart.h"
 
 #define GPS_BAUD          9600   /* vitesse d'usine du NEO-6M */
 #define SILENCE_ALERTE_S  3      /* alerte si rien reçu pendant ce temps */

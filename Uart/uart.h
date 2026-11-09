@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "raspi.h"
+#include "../Raspi/raspi.h"
 
 #define UART_ERR_BAUDRATE_INVALID -1
 #define UART_ERR_RASPI_INVALID -2
