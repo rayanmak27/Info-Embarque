@@ -10,7 +10,6 @@
  *     ./test_gps
  */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
