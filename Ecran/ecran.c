@@ -62,22 +62,25 @@ int ecran_init(void)
 int ecran_display(const DonneesVehicule *d)
 {
     char cmd[24];
-    snprintf(cmd, sizeof cmd, "jauge.val=%d", vitesse_vers_angle(d->vitesse_gps));
+
+    /* aiguille du compteur */
+    snprintf(cmd, sizeof cmd, "jVit.val=%d", vitesse_vers_angle(d->vitesse_gps));
     nextion_send(cmd);
 
-    set_txt("tmot", "%.1f", d->temp_moteur);
-    set_txt("tamb", "%.1f", d->temp_ambiante);
+    /* valeurs principales */
+    set_txt("rpm",  "%.0f", d->rpm);
     set_txt("vit",  "%.0f", d->vitesse_gps);
-    set_txt("lat",  "%.5f", d->latitude);
-    set_txt("lon",  "%.5f", d->longitude);
+    set_txt("tamb", "%.1f", d->temp_ambiante);
+    set_txt("tmot", "%.1f", d->temp_moteur);
 
-    set_txt("ax", "%.2f", d->accel_x);
-    set_txt("ay", "%.2f", d->accel_y);
-    set_txt("az", "%.2f", d->accel_z);
-    set_txt("gx", "%.1f", d->gyro_x);
-    set_txt("gy", "%.1f", d->gyro_y);
-    set_txt("gz", "%.1f", d->gyro_z);
-    
+    /* gyroscope et accélération */
+    set_txt("gX", "%.1f", d->gyro_x);
+    set_txt("gY", "%.1f", d->gyro_y);
+    set_txt("gZ", "%.1f", d->gyro_z);
+    set_txt("aX", "%.2f", d->accel_x);
+    set_txt("aY", "%.2f", d->accel_y);
+    set_txt("aZ", "%.2f", d->accel_z);
+
     set_chrono("chrono", d->timestamp);
     return 0;
 }
