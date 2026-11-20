@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef enum RASPI :
+typedef enum RASPI
 {
     RASPI_1         = 1,
     RASPI_2         = 2,
