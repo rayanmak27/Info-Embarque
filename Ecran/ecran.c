@@ -48,8 +48,7 @@ static int set_chrono(const char *composant, double secondes)
     int total = (int)secondes;
 
     char cmd[48];
-    snprintf(cmd, sizeof cmd, "%s.txt=\"%02d:%02d:%02d\"",
-             composant, total / 3600, (total % 3600) / 60, total % 60);
+    snprintf(cmd, sizeof cmd, "%s.txt=\"%02d:%02d\"", composant, total / 60, total % 60);
     return nextion_send(cmd);
 }
 
