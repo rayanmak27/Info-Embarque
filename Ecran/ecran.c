@@ -85,11 +85,18 @@ int ecran_display(const DonneesVehicule *d)
     return 0;
 }
 
+int ecran_page(int n)
+{
+    char cmd[16];
+    snprintf(cmd, sizeof cmd, "page %d", n);
+    return nextion_send(cmd);
+}
+
 int ecran_read_event(void)
 {
     uint8_t c;
     if (fd_ecran < 0) return -1;
-    return (read(fd_ecran, &c, 1) == 1) ? c : EVT_AUCUN;
+    return (read(fd_ecran, &c, 1) == 1) ? c : 0;   /* 0 = rien reçu */
 }
 
 int ecran_text(const char *texte) { return nextion_send(texte); }  /* commande brute */

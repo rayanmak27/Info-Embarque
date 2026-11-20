@@ -11,6 +11,7 @@ int ecran_display(const DonneesVehicule *donnees);
 int ecran_text(const char *texte);
 int ecran_clear(void);
 void ecran_close(void);
-int ecran_read_event(void);
+int ecran_page(int n);
+int ecran_read_event(void);   /* 0xA1 start, 0xA2 pause, 0xA3 fin */
 
 #endif
