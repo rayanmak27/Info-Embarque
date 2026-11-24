@@ -1,6 +1,8 @@
 #ifndef TEMPMOTEUR_H
 #define TEMPMOTEUR_H
 
+#include <errno.h>
+
 // GPIO8  : CS  (broche 24)
 // GPIO9  : DO  (broche 21)
 // GPIO11 : CLK (broche 23)
@@ -10,11 +12,11 @@
 // Lecture au créneau 8 (800 ms) : la puce relance seule sa conversion
 // Communication : SPI0 en lecture seule, /dev/spidev0.0 (dtparam=spi=on)
 
-// Codes de retour (0 = OK)
-#define TEMPMOTEUR_ERR_SPI -1     // SPI absent ou module pas initialisé
-#define TEMPMOTEUR_ERR_SONDE -2   // thermocouple ouvert ou en court-circuit
-#define TEMPMOTEUR_ERR_TRAME -3   // module absent ou mauvaise puce choisie
-#define TEMPMOTEUR_ERR_ATTENTE -4 // première conversion pas encore finie
+// Codes de retour : 0 = OK, sinon -errno, comme Temp_Ambiante
+#define TEMPMOTEUR_ERR_SPI (-ENODEV)    // SPI absent ou module pas initialisé
+#define TEMPMOTEUR_ERR_SONDE (-EIO)     // thermocouple ouvert ou en court-circuit
+#define TEMPMOTEUR_ERR_TRAME (-EPROTO)  // module absent ou mauvaise puce choisie
+#define TEMPMOTEUR_ERR_ATTENTE (-EAGAIN) // première conversion pas encore finie
 
 int tempmoteur_init(void);
 int tempmoteur_read(float *temperature); // en °C

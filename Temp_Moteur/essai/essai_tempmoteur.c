@@ -1,7 +1,7 @@
 //Ali
 //Essai du module T moteur sur la Pi : une mesure par seconde et durée de lecture
 //Depuis Temp_Moteur : gcc -Wall -Wextra -o essai/essai essai/essai_tempmoteur.c tempmoteur.c
-//Avec un MAX31855 : ajouter -DTEMPMOTEUR_PUCE=31855
+//Avec un MAX31855 : ajouter -DTEMPMOTEUR_PUCE=31855 (essai/puce dit laquelle est branchée)
 
 #define _POSIX_C_SOURCE 200809L
 
@@ -49,7 +49,9 @@ int main(void)
         else if (r == TEMPMOTEUR_ERR_SONDE)
             printf("%2d  sonde ouverte ou en court-circuit\n", i);
         else if (r == TEMPMOTEUR_ERR_TRAME)
-            printf("%2d  trame invalide : module absent ou mauvaise puce choisie\n", i);
+            printf("%2d  trame invalide : module absent ou mauvaise puce choisie (essai/puce)\n", i);
+        else if (r == TEMPMOTEUR_ERR_ATTENTE)
+            printf("%2d  conversion pas encore finie\n", i);
         else
             printf("%2d  erreur %d\n", i, r);
 
