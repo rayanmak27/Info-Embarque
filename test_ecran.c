@@ -3,30 +3,23 @@
 #include <time.h>
 #include <unistd.h>
 #include <signal.h>
-
+ 
 #include "Ecran/ecran.h"
-
-/* numéros de pages dans Nextion : adaptez-les */
-#define PAGE_PRET    0
-#define PAGE_MESURE  2
-#define PAGE_PAUSE   3
-
-#define EVT_START 0xA1
-#define EVT_PAUSE 0xA2
-#define EVT_FIN   0xA3
-
+ 
+ 
+ 
 typedef enum { ETAT_PRET, ETAT_MESURE, ETAT_PAUSE } Etat;
-
+ 
 static volatile sig_atomic_t stop = 0;
 static void on_sigint(int s) { (void)s; stop = 1; }
-
+ 
 static double maintenant(void)
 {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
     return t.tv_sec + t.tv_nsec / 1e9;
 }
-
+ 
 /* valeurs inventées, qui varient avec le temps t (en secondes) */
 static void simuler(DonneesVehicule *d, double t)
 {
@@ -41,27 +34,27 @@ static void simuler(DonneesVehicule *d, double t)
     d->gyro_y  = 30.0f * cosf(t * 0.7);
     d->gyro_z  = 10.0f * sinf(t * 0.2);
 }
-
+ 
 int main(void)
 {
     signal(SIGINT, on_sigint);
-
+ 
     if (ecran_init() != 0) {
         fprintf(stderr, "Erreur : impossible d'ouvrir l'UART\n");
         return 1;
     }
-
+ 
     DonneesVehicule d = {0};
     Etat   etat = ETAT_PRET;
     double debut = 0, pause_debut = 0, temps_pause = 0;
     double chrono = 0;
-
+ 
     ecran_page(PAGE_PRET);
     printf("Test écran : Ctrl+C pour quitter. Boutons de l'écran actifs.\n");
-
+ 
     while (!stop) {
         double now = maintenant();
-
+ 
         /* ---- boutons de l'écran ---- */
         int evt;
         while ((evt = ecran_read_event()) > 0) {
@@ -83,18 +76,25 @@ int main(void)
             }
             printf("Evénement reçu : 0x%02X\n", evt);
         }
-
+ 
         /* ---- chrono : s'arrête pendant la pause ---- */
         if (etat == ETAT_MESURE) chrono = now - debut - temps_pause;
         d.timestamp = chrono;
-
+ 
         /* ---- valeurs inventées + affichage ---- */
         simuler(&d, now);
         ecran_display(&d);
-
+ 
+        /* signale les réponses 0x1A de l'écran (composant inconnu sur la page courante) */
+        static int deja = 0;
+        if (ecran_erreurs() != deja) {
+            deja = ecran_erreurs();
+            printf("Erreurs Nextion 0x1A : %d (un composant n'existe pas sur la page courante)\n", deja);
+        }
+ 
         usleep(250000);   /* 4 rafraîchissements par seconde */
     }
-
+ 
     ecran_page(PAGE_PRET);
     ecran_close();
     return 0;
