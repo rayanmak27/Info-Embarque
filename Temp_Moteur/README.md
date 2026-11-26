@@ -73,6 +73,17 @@ Pour qu'elle suive le moteur, appeler `tempmoteur_simu_regime(d.rpm)` (`simulati
 
 Pour la démo, la vraie sonde et une vraie source de chaleur valent mieux : main (environ 33 °C), eau glacée (0 °C), eau bouillante (environ 100 °C), sèche-cheveux ou décapeur.
 
+## Essai d'intégration : la boucle du projet
+
+`essai/boucle_simu.c` reproduit l'exécutif du rapport commun : 10 créneaux de 100 ms, réveil à date absolue, régime au créneau 0, T moteur au créneau 8, une ligne de journal (CSV) au créneau 9. Il peut servir de point de départ pour `main.c`.
+
+```
+gcc -Wall -Wextra -DAVEC_SIMU -DSIMU_TAU_S=12 -o essai/boucle essai/boucle_simu.c simulation/tempmoteur_simu.c && ./essai/boucle > journal.csv
+gcc -Wall -Wextra -o essai/boucle-reel essai/boucle_simu.c tempmoteur.c && ./essai/boucle-reel 60
+```
+
+Lancé sur la Pi le 27/11 : 150 lectures simulées sans erreur, réveils à 0,2 ms près ; sans SPI activé, `tempmoteur_init` et chaque lecture rendent -19 (`-ENODEV`), le journal écrit `nan` et la boucle continue.
+
 ## Tests sur PC, sans Pi
 
 Depuis `Temp_Moteur/tests` (Linux ou Mac) :
