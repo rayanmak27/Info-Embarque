@@ -20,15 +20,14 @@ typedef struct
     float accel_x;
     float accel_y;
     float accel_z;
-
-    float gyro_x;
-    float gyro_y;
-    float gyro_z;
+    float tilt_x;
+    float tilt_y;
+    float tilt_z;
 
 } DonneesVehicule;
 
-int datalog_init(const char *chemin);
-int datalog_write(const DonneesVehicule *donnees);
-void datalog_close(void);
+void transfer_log(const char win_or_linux); //'w' pour Windows, 'l' pour Linux
+void datalog_write(const DonneesVehicule m);
+
 
 #endif
