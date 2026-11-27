@@ -106,9 +106,9 @@ int ecran_display(const DonneesVehicule *d)
         break;
  
     case PAGE_GYRO:
-        err |= set_txt("gX", "%.1f", d->gyro_x);
-        err |= set_txt("gY", "%.1f", d->gyro_y);
-        err |= set_txt("gZ", "%.1f", d->gyro_z);
+        err |= set_txt("gX", "%.1f", d->tilt_x);
+        err |= set_txt("gY", "%.1f", d->tilt_y);
+        err |= set_txt("gZ", "%.1f", d->tilt_z);
         err |= set_txt("aX", "%.2f", d->accel_x);
         err |= set_txt("aY", "%.2f", d->accel_y);
         err |= set_txt("aZ", "%.2f", d->accel_z);
