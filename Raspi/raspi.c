@@ -44,7 +44,9 @@ const char* Raspi_GetUArt_Folder(RASPI raspi)
             return UART_FOLDER[1];
 
         case RASPI_5:
-            return UART_FOLDER[2];
+            /* GPIO14/15 = ttyAMA0 (avec dtparam=uart0=on).
+             * ttyAMA10 est le petit connecteur de debug, réservé à la console. */
+            return UART_FOLDER[0];
 
         default:
             return "";
