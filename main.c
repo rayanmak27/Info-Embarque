@@ -35,13 +35,16 @@ static void arreter(int sig)
 static double temps(void)
 {
     struct timespec t;
+
     clock_gettime(CLOCK_MONOTONIC, &t);
+
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 
 static int gps_ouvrir(void)
 {
     int fd = open("/dev/ttyAMA5", O_RDONLY | O_NOCTTY | O_NONBLOCK);
+
     if (fd < 0) return -1;
 
     struct termios t;
@@ -54,6 +57,7 @@ static int gps_ouvrir(void)
     cfmakeraw(&t);
     cfsetispeed(&t, B9600);
     cfsetospeed(&t, B9600);
+
     t.c_cflag |= CLOCAL | CREAD;
 
     if (tcsetattr(fd, TCSANOW, &t) < 0) {
@@ -67,6 +71,7 @@ static int gps_ouvrir(void)
 static int impulsions_init(void)
 {
     chip = gpiod_chip_open("/dev/gpiochip0");
+
     if (!chip) return -1;
 
     struct gpiod_line_settings *s = gpiod_line_settings_new();
@@ -80,9 +85,17 @@ static int impulsions_init(void)
 
     unsigned int gpio = GPIO_IMPULSION;
 
-    gpiod_line_settings_set_direction(s, GPIOD_LINE_DIRECTION_INPUT);
-    gpiod_line_settings_set_edge_detection(s, GPIOD_LINE_EDGE_RISING);
-    gpiod_line_settings_set_event_clock(s, GPIOD_LINE_CLOCK_MONOTONIC);
+    gpiod_line_settings_set_direction(
+        s, GPIOD_LINE_DIRECTION_INPUT
+    );
+
+    gpiod_line_settings_set_edge_detection(
+        s, GPIOD_LINE_EDGE_RISING
+    );
+
+    gpiod_line_settings_set_event_clock(
+        s, GPIOD_LINE_CLOCK_MONOTONIC
+    );
 
     gpiod_line_config_add_line_settings(c, &gpio, 1, s);
 
@@ -100,13 +113,18 @@ static void impulsions_lire(float *rpm)
     if (!request || !buffer) return;
 
     if (gpiod_line_request_wait_edge_events(request, 0) > 0) {
-        int n = gpiod_line_request_read_edge_events(request, buffer, 16);
+
+        int n = gpiod_line_request_read_edge_events(
+            request, buffer, 16
+        );
 
         for (int i = 0; i < n; i++) {
+
             struct gpiod_edge_event *e =
                 gpiod_edge_event_buffer_get_event(buffer, i);
 
-            uint64_t instant = gpiod_edge_event_get_timestamp_ns(e);
+            uint64_t instant =
+                gpiod_edge_event_get_timestamp_ns(e);
 
             if (derniere_impulsion && instant > derniere_impulsion)
                 *rpm = 60e9f / (float)(instant - derniere_impulsion);
@@ -117,6 +135,7 @@ static void impulsions_lire(float *rpm)
 
     if (derniere_impulsion &&
         (uint64_t)(temps() * 1e9) - derniere_impulsion > 6000000000ULL) {
+
         *rpm = 0;
         derniere_impulsion = 0;
     }
@@ -157,82 +176,116 @@ int main(void)
     printf("[GPS]          %s\n", gps_fd >= 0 ? "OK" : "ERREUR");
     printf("[NEXTION]      %s\n", ecran_ok ? "OK" : "ERREUR");
 
-    if (gps_fd >= 0) gps_init(gps_fd);
-    if (ecran_ok) ecran_page(PAGE_PRET);
+    if (gps_fd >= 0)
+        gps_init(gps_fd);
 
-    printf("\n[SYSTEME] Programme démarré\n");
-    printf("[SYSTEME] Appuyer sur DEMARRER\n\n");
+    if (ecran_ok)
+        ecran_page(PAGE_PRET);
+
+    printf("\n[SYSTEME] En attente des boutons Nextion...\n\n");
 
     while (actif) {
 
         double maintenant = temps();
 
-        /* BOUTONS NEXTION */
-
+        // Lecture des boutons Nextion
         int evt = ecran_ok ? ecran_read_event() : EVT_AUCUN;
 
         if (evt == EVT_START) {
 
             if (!mesure) {
+
                 mesure = 1;
                 pause = 0;
+
                 debut = maintenant;
                 duree_pause = 0;
+
                 d.timestamp = 0;
 
-                printf("[CHRONO] DEMARRER\n");
-                if (ecran_ok) ecran_page(PAGE_MESURE);
+                printf("\n[CHRONO] DEMARRER\n");
+
+                if (ecran_ok)
+                    ecran_page(PAGE_MESURE);
 
             } else if (pause) {
+
                 duree_pause += maintenant - debut_pause;
                 pause = 0;
 
-                printf("[CHRONO] CONTINUER\n");
-                if (ecran_ok) ecran_page(PAGE_MESURE);
+                printf("\n[CHRONO] CONTINUER\n");
+
+                if (ecran_ok)
+                    ecran_page(PAGE_MESURE);
             }
         }
 
-        if (evt == EVT_PAUSE && mesure && !pause) {
-            pause = 1;
-            debut_pause = maintenant;
+        else if (evt == EVT_PAUSE) {
 
-            printf("[CHRONO] PAUSE\n");
-            if (ecran_ok) ecran_page(PAGE_PAUSE);
+            if (mesure && !pause) {
+
+                pause = 1;
+                debut_pause = maintenant;
+
+                printf("\n[CHRONO] PAUSE\n");
+
+                if (ecran_ok)
+                    ecran_page(PAGE_PAUSE);
+            }
         }
 
-        if (evt == EVT_FIN && mesure) {
-            mesure = 0;
-            pause = 0;
-            d.timestamp = 0;
+        else if (evt == EVT_FIN) {
 
-            printf("[CHRONO] FIN\n");
-            if (ecran_ok) ecran_page(PAGE_PRET);
+            if (mesure) {
+
+                mesure = 0;
+                pause = 0;
+
+                d.timestamp = 0;
+
+                printf("\n[CHRONO] FIN\n");
+
+                if (ecran_ok)
+                    ecran_page(PAGE_PRET);
+            }
         }
 
-        /* CHRONOMETRE */
-
+        // Calcul du chronomètre
         if (mesure) {
+
             double reference = pause ? debut_pause : maintenant;
+
             d.timestamp = reference - debut - duree_pause;
         }
 
-        /* CAPTEURS : CRENEAUX 100 ms */
-
+        // Lecture des capteurs
         switch (cycle) {
 
         case 0:
-            if (imp_ok) impulsions_lire(&d.rpm);
+            if (imp_ok)
+                impulsions_lire(&d.rpm);
             break;
 
         case 1:
             if (gyro_ok) {
-                gyro_get_accel(&d.accel_x, &d.accel_y, &d.accel_z);
-                gyro_get_angles(&d.tilt_x, &d.tilt_y, &d.tilt_z);
+
+                gyro_get_accel(
+                    &d.accel_x,
+                    &d.accel_y,
+                    &d.accel_z
+                );
+
+                gyro_get_angles(
+                    &d.tilt_x,
+                    &d.tilt_y,
+                    &d.tilt_z
+                );
             }
             break;
 
         case 2:
             if (gps_fd >= 0 && gps_Read(&gps) > 0 && gps.fix) {
+
                 d.latitude = gps.latitude;
                 d.longitude = gps.longitude;
                 d.altitude = gps.altitude_m;
@@ -241,24 +294,18 @@ int main(void)
             break;
 
         case 7:
-            if (amb_ok) tempamb_read(&d.temp_ambiante);
+            if (amb_ok)
+                tempamb_read(&d.temp_ambiante);
             break;
 
         case 8:
-            if (mot_ok) tempmoteur_read(&d.temp_moteur);
+            if (mot_ok)
+                tempmoteur_read(&d.temp_moteur);
             break;
 
         case 9:
-            if (ecran_ok) {
-                int rc = ecran_display(&d);
-
-                printf("[ECRAN] Envoi=%s | erreurs=%d\n",
-                       rc == 0 ? "OK" : "ERREUR",
-                       ecran_erreurs());
-            }
-
-            printf("[CHRONO] mesure=%d pause=%d temps=%.1f s\n",
-                   mesure, pause, d.timestamp);
+            if (ecran_ok && ecran_display(&d) < 0)
+                printf("[NEXTION] ERREUR d'envoi des valeurs\n");
 
             if (mesure && !pause)
                 datalog_write(d);
@@ -267,21 +314,31 @@ int main(void)
         }
 
         cycle = (cycle + 1) % 10;
+
         usleep(100000);
     }
 
     printf("\n[SYSTEME] Arrêt...\n");
 
-    if (ecran_ok) ecran_close();
-    if (gps_fd >= 0) close(gps_fd);
+    if (ecran_ok)
+        ecran_close();
 
-    if (buffer) gpiod_edge_event_buffer_free(buffer);
-    if (request) gpiod_line_request_release(request);
-    if (chip) gpiod_chip_close(chip);
+    if (gps_fd >= 0)
+        close(gps_fd);
+
+    if (buffer)
+        gpiod_edge_event_buffer_free(buffer);
+
+    if (request)
+        gpiod_line_request_release(request);
+
+    if (chip)
+        gpiod_chip_close(chip);
 
     tempamb_close();
     tempmoteur_close();
 
     printf("[SYSTEME] Programme terminé\n");
+
     return 0;
 }

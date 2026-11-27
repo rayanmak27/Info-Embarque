@@ -22,8 +22,8 @@ static int envoyer(const char *cmd)
 
     if (fd_ecran < 0) return -1;
 
-    size_t n = strlen(cmd);
     const uint8_t *p = (const uint8_t *)cmd;
+    size_t n = strlen(cmd);
 
     while (n > 0) {
         ssize_t r = write(fd_ecran, p, n);
@@ -38,12 +38,27 @@ static int envoyer(const char *cmd)
         }
     }
 
-    return write(fd_ecran, fin, 3) == 3 ? 0 : -1;
+    size_t i = 0;
+
+    while (i < 3) {
+        ssize_t r = write(fd_ecran, fin + i, 3 - i);
+
+        if (r > 0) {
+            i += (size_t)r;
+        } else if (r < 0 && (errno == EAGAIN || errno == EINTR)) {
+            usleep(1000);
+        } else {
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 static int texte(const char *nom, const char *format, double valeur)
 {
-    char contenu[32], cmd[80];
+    char contenu[32];
+    char cmd[80];
 
     snprintf(contenu, sizeof(contenu), format, valeur);
     snprintf(cmd, sizeof(cmd), "%s.txt=\"%s\"", nom, contenu);
@@ -55,9 +70,13 @@ int ecran_init(void)
 {
     fd_ecran = UART_Init(RASPI_4, 9600);
 
-    if (fd_ecran < 0) return -1;
+    if (fd_ecran < 0) {
+        printf("[NEXTION] ERREUR ouverture UART\n");
+        return -1;
+    }
 
     printf("[NEXTION] UART ouvert : fd=%d\n", fd_ecran);
+
     return 0;
 }
 
@@ -67,12 +86,25 @@ int ecran_page(int page)
 
     snprintf(cmd, sizeof(cmd), "page %d", page);
 
-    if (envoyer(cmd) < 0) return -1;
+    printf("[NEXTION TX] Commande : %s\n", cmd);
+    printf("[NEXTION TX] Octets   : ");
+
+    for (size_t i = 0; i < strlen(cmd); i++)
+        printf("%02X ", (unsigned char)cmd[i]);
+
+    printf("FF FF FF\n");
+
+    if (envoyer(cmd) < 0) {
+        printf("[NEXTION] ERREUR envoi page %d\n", page);
+        return -1;
+    }
 
     page_courante = page;
+
     usleep(100000);
 
-    printf("[NEXTION] Page demandée : %d\n", page);
+    printf("[NEXTION] Page %d demandée\n", page);
+
     return 0;
 }
 
@@ -84,6 +116,7 @@ int ecran_display(const DonneesVehicule *d)
     char cmd[48];
 
     if (page_courante == PAGE_GYRO) {
+
         erreur |= texte("gX", "%.1f", d->tilt_x);
         erreur |= texte("gY", "%.1f", d->tilt_y);
         erreur |= texte("gZ", "%.1f", d->tilt_z);
@@ -91,7 +124,9 @@ int ecran_display(const DonneesVehicule *d)
         erreur |= texte("aX", "%.2f", d->accel_x);
         erreur |= texte("aY", "%.2f", d->accel_y);
         erreur |= texte("aZ", "%.2f", d->accel_z);
+
     } else {
+
         float v = d->vitesse_gps;
 
         if (v < 0) v = 0;
@@ -109,9 +144,12 @@ int ecran_display(const DonneesVehicule *d)
 
         int secondes = (int)d->timestamp;
 
+        if (secondes < 0) secondes = 0;
+
         snprintf(cmd, sizeof(cmd),
                  "chrono.txt=\"%02d:%02d\"",
-                 secondes / 60, secondes % 60);
+                 secondes / 60,
+                 secondes % 60);
 
         erreur |= envoyer(cmd);
     }
@@ -119,14 +157,10 @@ int ecran_display(const DonneesVehicule *d)
     return erreur ? -1 : 0;
 }
 
-/*
- * CORRECTION :
- * A1, A2 et A3 sont détectés directement,
- * même si des octets parasites arrivent avant.
- */
 int ecran_read_event(void)
 {
     uint8_t c;
+
     static int ff = 0;
     static int debut = -1;
 
@@ -134,11 +168,15 @@ int ecran_read_event(void)
 
     while (read(fd_ecran, &c, 1) == 1) {
 
+        // Affichage des octets reçus
+        printf("[NEXTION RX] %02X\n", c);
+
+        // Détection immédiate des boutons
         if (c == EVT_START ||
             c == EVT_PAUSE ||
             c == EVT_FIN) {
 
-            printf("[NEXTION RX] Bouton reçu : 0x%02X\n", c);
+            printf("[NEXTION] Bouton détecté : 0x%02X\n", c);
 
             ff = 0;
             debut = -1;
@@ -146,15 +184,20 @@ int ecran_read_event(void)
             return c;
         }
 
-        if (debut < 0) debut = c;
+        // Détection des réponses Nextion
+        if (debut < 0)
+            debut = c;
 
-        if (c == 0xFF) ff++;
-        else ff = 0;
+        if (c == 0xFF)
+            ff++;
+        else
+            ff = 0;
 
         if (ff == 3) {
+
             if (debut == 0x1A) {
                 nb_erreurs++;
-                printf("[NEXTION] Erreur composant 0x1A\n");
+                printf("[NEXTION] ERREUR : composant invalide (0x1A)\n");
             }
 
             ff = 0;
@@ -182,6 +225,8 @@ int ecran_clear(void)
 
 void ecran_close(void)
 {
-    if (fd_ecran >= 0) UART_Close(fd_ecran);
+    if (fd_ecran >= 0)
+        UART_Close(fd_ecran);
+
     fd_ecran = -1;
 }
