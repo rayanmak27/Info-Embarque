@@ -15,6 +15,6 @@
 int32_t UART_Init(RASPI raspi, uint32_t baud);
 void UART_Close(int32_t uart);
 
-static bool UART_IsValidBaudRate(uint32_t baud);
+bool UART_IsValidBaudRate(uint32_t baud);
 
 #endif
