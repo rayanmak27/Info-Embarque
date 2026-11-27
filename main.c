@@ -55,6 +55,7 @@ static int gps_ouvrir(void)
     }
 
     cfmakeraw(&t);
+
     cfsetispeed(&t, B9600);
     cfsetospeed(&t, B9600);
 
@@ -182,13 +183,13 @@ int main(void)
     if (ecran_ok)
         ecran_page(PAGE_PRET);
 
-    printf("\n[SYSTEME] En attente des boutons Nextion...\n\n");
+    printf("\n[SYSTEME] Programme démarré\n");
 
     while (actif) {
 
         double maintenant = temps();
 
-        // Lecture des boutons Nextion
+        // Lecture des boutons
         int evt = ecran_ok ? ecran_read_event() : EVT_AUCUN;
 
         if (evt == EVT_START) {
@@ -203,7 +204,7 @@ int main(void)
 
                 d.timestamp = 0;
 
-                printf("\n[CHRONO] DEMARRER\n");
+                printf("[CHRONO] DEMARRER\n");
 
                 if (ecran_ok)
                     ecran_page(PAGE_MESURE);
@@ -213,7 +214,7 @@ int main(void)
                 duree_pause += maintenant - debut_pause;
                 pause = 0;
 
-                printf("\n[CHRONO] CONTINUER\n");
+                printf("[CHRONO] CONTINUER\n");
 
                 if (ecran_ok)
                     ecran_page(PAGE_MESURE);
@@ -227,7 +228,7 @@ int main(void)
                 pause = 1;
                 debut_pause = maintenant;
 
-                printf("\n[CHRONO] PAUSE\n");
+                printf("[CHRONO] PAUSE\n");
 
                 if (ecran_ok)
                     ecran_page(PAGE_PAUSE);
@@ -243,14 +244,14 @@ int main(void)
 
                 d.timestamp = 0;
 
-                printf("\n[CHRONO] FIN\n");
+                printf("[CHRONO] FIN\n");
 
                 if (ecran_ok)
                     ecran_page(PAGE_PRET);
             }
         }
 
-        // Calcul du chronomètre
+        // Chronomètre
         if (mesure) {
 
             double reference = pause ? debut_pause : maintenant;
@@ -258,12 +259,17 @@ int main(void)
             d.timestamp = reference - debut - duree_pause;
         }
 
-        // Lecture des capteurs
+        // Capteurs : cycle de 100 ms
         switch (cycle) {
 
         case 0:
             if (imp_ok)
                 impulsions_lire(&d.rpm);
+
+            // Demande au Nextion quelle page est affichée
+            if (ecran_ok)
+                ecran_text("sendme");
+
             break;
 
         case 1:
@@ -305,7 +311,7 @@ int main(void)
 
         case 9:
             if (ecran_ok && ecran_display(&d) < 0)
-                printf("[NEXTION] ERREUR d'envoi des valeurs\n");
+                printf("[NEXTION] ERREUR envoi des valeurs\n");
 
             if (mesure && !pause)
                 datalog_write(d);

@@ -1,5 +1,5 @@
 // Matthias et Alexandre
-// Nextion : GPIO14 TX, GPIO15 RX
+// Nextion : GPIO14 TX, GPIO15 RX, 9600 bauds
 
 #include "ecran.h"
 #include "../Uart/uart.h"
@@ -57,11 +57,11 @@ static int envoyer(const char *cmd)
 
 static int texte(const char *nom, const char *format, double valeur)
 {
-    char contenu[32];
+    char valeur_txt[32];
     char cmd[80];
 
-    snprintf(contenu, sizeof(contenu), format, valeur);
-    snprintf(cmd, sizeof(cmd), "%s.txt=\"%s\"", nom, contenu);
+    snprintf(valeur_txt, sizeof(valeur_txt), format, valeur);
+    snprintf(cmd, sizeof(cmd), "%s.txt=\"%s\"", nom, valeur_txt);
 
     return envoyer(cmd);
 }
@@ -71,12 +71,11 @@ int ecran_init(void)
     fd_ecran = UART_Init(RASPI_4, 9600);
 
     if (fd_ecran < 0) {
-        printf("[NEXTION] ERREUR ouverture UART\n");
+        printf("[NEXTION] ERREUR ouverture UART (code=%d)\n", fd_ecran);
         return -1;
     }
 
     printf("[NEXTION] UART ouvert : fd=%d\n", fd_ecran);
-
     return 0;
 }
 
@@ -86,22 +85,15 @@ int ecran_page(int page)
 
     snprintf(cmd, sizeof(cmd), "page %d", page);
 
-    printf("[NEXTION TX] %s\n", cmd);
-    printf("[NEXTION TX] Octets : ");
-
-    for (size_t i = 0; i < strlen(cmd); i++)
-        printf("%02X ", (unsigned char)cmd[i]);
-
-    printf("FF FF FF\n");
-
     if (envoyer(cmd) < 0) {
-        printf("[NEXTION] ERREUR envoi page %d\n", page);
+        printf("[NEXTION] ERREUR changement de page\n");
         return -1;
     }
 
     page_courante = page;
-
     usleep(100000);
+
+    printf("[NEXTION TX] page %d\n", page);
 
     return 0;
 }
@@ -113,7 +105,7 @@ int ecran_display(const DonneesVehicule *d)
     int erreur = 0;
     char cmd[48];
 
-    // Page d'accueil : aucun compteur à actualiser
+    // Page d'accueil : pas de mise à jour
     if (page_courante == PAGE_PRET)
         return 0;
 
@@ -135,14 +127,15 @@ int ecran_display(const DonneesVehicule *d)
     if (page_courante == PAGE_MESURE ||
         page_courante == PAGE_PAUSE) {
 
-        float v = d->vitesse_gps;
+        float vitesse = d->vitesse_gps;
 
-        if (v < 0) v = 0;
-        if (v > VITESSE_MAX) v = VITESSE_MAX;
+        if (vitesse < 0) vitesse = 0;
+        if (vitesse > VITESSE_MAX) vitesse = VITESSE_MAX;
 
-        int angle = (45 + (int)(v / VITESSE_MAX * 270)) % 360;
+        int angle = (45 + (int)(vitesse / VITESSE_MAX * 270)) % 360;
 
-        snprintf(cmd, sizeof(cmd), "jVit.val=%d", angle);
+        // Nom corrigé : jvit en minuscules
+        snprintf(cmd, sizeof(cmd), "jvit.val=%d", angle);
         erreur |= envoyer(cmd);
 
         erreur |= texte("vit", "%.0f", d->vitesse_gps);
@@ -165,48 +158,71 @@ int ecran_display(const DonneesVehicule *d)
     return erreur ? -1 : 0;
 }
 
+/*
+ * Réception Nextion :
+ * A1 = démarrer / continuer
+ * A2 = pause
+ * A3 = terminer
+ * 66 XX FF FF FF = numéro de page (réponse à sendme)
+ * 1A FF FF FF = commande invalide
+ */
 int ecran_read_event(void)
 {
-    uint8_t c;
-
+    static uint8_t paquet[16];
+    static int n = 0;
     static int ff = 0;
-    static int debut = -1;
+
+    uint8_t c;
 
     if (fd_ecran < 0) return -1;
 
     while (read(fd_ecran, &c, 1) == 1) {
 
-        // Boutons envoyés par printh A1/A2/A3
-        if (c == EVT_START ||
-            c == EVT_PAUSE ||
-            c == EVT_FIN) {
+        // Boutons : un seul octet
+        if (n == 0 &&
+            (c == EVT_START ||
+             c == EVT_PAUSE ||
+             c == EVT_FIN)) {
 
-            printf("[NEXTION RX] Octet : %02X\n", c);
-            printf("[NEXTION] Bouton détecté : 0x%02X\n", c);
-
-            ff = 0;
-            debut = -1;
-
+            printf("[NEXTION RX] Bouton : 0x%02X\n", c);
             return c;
         }
 
-        if (debut < 0)
-            debut = c;
+        // Reconstitution des réponses Nextion
+        if (n < (int)sizeof(paquet)) {
+            paquet[n++] = c;
+        } else {
+            n = 0;
+            ff = 0;
+            continue;
+        }
 
         if (c == 0xFF)
             ff++;
         else
             ff = 0;
 
-        if (ff == 3) {
+        if (ff >= 3) {
 
-            if (debut == 0x1A) {
+            if (paquet[0] == 0x66 && n >= 5) {
+
+                int nouvelle_page = paquet[1];
+
+                if (nouvelle_page != page_courante) {
+                    page_courante = nouvelle_page;
+
+                    printf("[NEXTION RX] Page active : %d\n",
+                           page_courante);
+                }
+            }
+
+            else if (paquet[0] == 0x1A) {
                 nb_erreurs++;
                 printf("[NEXTION] ERREUR composant (0x1A)\n");
             }
 
+            n = 0;
             ff = 0;
-            debut = -1;
         }
     }
 
