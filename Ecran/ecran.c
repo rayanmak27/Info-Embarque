@@ -86,8 +86,8 @@ int ecran_page(int page)
 
     snprintf(cmd, sizeof(cmd), "page %d", page);
 
-    printf("[NEXTION TX] Commande : %s\n", cmd);
-    printf("[NEXTION TX] Octets   : ");
+    printf("[NEXTION TX] %s\n", cmd);
+    printf("[NEXTION TX] Octets : ");
 
     for (size_t i = 0; i < strlen(cmd); i++)
         printf("%02X ", (unsigned char)cmd[i]);
@@ -103,8 +103,6 @@ int ecran_page(int page)
 
     usleep(100000);
 
-    printf("[NEXTION] Page %d demandée\n", page);
-
     return 0;
 }
 
@@ -115,6 +113,11 @@ int ecran_display(const DonneesVehicule *d)
     int erreur = 0;
     char cmd[48];
 
+    // Page d'accueil : aucun compteur à actualiser
+    if (page_courante == PAGE_PRET)
+        return 0;
+
+    // Page gyroscope
     if (page_courante == PAGE_GYRO) {
 
         erreur |= texte("gX", "%.1f", d->tilt_x);
@@ -125,7 +128,12 @@ int ecran_display(const DonneesVehicule *d)
         erreur |= texte("aY", "%.2f", d->accel_y);
         erreur |= texte("aZ", "%.2f", d->accel_z);
 
-    } else {
+        return erreur ? -1 : 0;
+    }
+
+    // Pages mesure et pause
+    if (page_courante == PAGE_MESURE ||
+        page_courante == PAGE_PAUSE) {
 
         float v = d->vitesse_gps;
 
@@ -168,14 +176,12 @@ int ecran_read_event(void)
 
     while (read(fd_ecran, &c, 1) == 1) {
 
-        // Affichage des octets reçus
-        printf("[NEXTION RX] %02X\n", c);
-
-        // Détection immédiate des boutons
+        // Boutons envoyés par printh A1/A2/A3
         if (c == EVT_START ||
             c == EVT_PAUSE ||
             c == EVT_FIN) {
 
+            printf("[NEXTION RX] Octet : %02X\n", c);
             printf("[NEXTION] Bouton détecté : 0x%02X\n", c);
 
             ff = 0;
@@ -184,7 +190,6 @@ int ecran_read_event(void)
             return c;
         }
 
-        // Détection des réponses Nextion
         if (debut < 0)
             debut = c;
 
@@ -197,7 +202,7 @@ int ecran_read_event(void)
 
             if (debut == 0x1A) {
                 nb_erreurs++;
-                printf("[NEXTION] ERREUR : composant invalide (0x1A)\n");
+                printf("[NEXTION] ERREUR composant (0x1A)\n");
             }
 
             ff = 0;
